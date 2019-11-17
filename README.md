@@ -17,11 +17,12 @@ Should there be a bug introduced in the constructor, in a standard testing frame
 This makes it non-obvious that the actual bug was in the constructor, even though the constructor test might have caught the bug.
 
 In intertest, you can describe those tests to depend on each other. Test 2 can depend on test 1, because you need to construct the vector before you add anything to it.
-Then test 3 might depend on both 2 and 1, because the vector needs to first be constructed and then items need to be added before it makes sense to run this test.
+Then test 3 might depend on both 2 and 1, because the vector needs to first be constructed and then items need to be added before it makes sense to run this test.\
+The resulting test suite could be represented as this graph:
 ```
 1 ---> 2 --> 3
 |            ^
 +------------+
 ```
-
+If test 1 fails, both Test 2 and 3 won't run, causing the test suite to finish quicker and to not clutter the test results.
 
