@@ -1,0 +1,10 @@
+[package]
+name = "intertest"
+version = "0.1.0"
+authors = ["Leon Matthes <leon@matthes.biz>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+graphlib={git="https://github.com/MrModder/graphlib", branch="no_clone_required"}
