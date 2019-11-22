@@ -1,37 +1,21 @@
-fn aaaaah_panic() {
-    println!("aaaaah_panic");
-    panic!("test");
-}
+use intertest::{intertest_main, test_case, test_suite};
+use intertest::{test::Test, test_suite::TestSuite};
 
-fn another_depency() {
-    println!("another dependency");
-}
+test_suite!(do_nothing {
+    test_case!(do_nothing_too {
+        println!("nothing");
+        panic!("AAAAH");
+    })
+});
 
-fn hello_world() {
-    println!("Hello, World!");
-    assert_eq!(true, true); // this is true
-}
+test_suite!(hello[do_nothing] { 
+    test_case!(error {
+        println!("Let me error this real quick!");
+        panic!("ERROR!");
+    });
+    test_case!(world[error] {
+        println!("Hello, world");
+    });
+});
 
-use intertest::{test::Test, test_case::TestCase, test_suite::TestSuite};
-
-fn main() {
-    let mut suite = TestSuite::new(String::from("My Suite"));
-
-    let dependency1 = TestCase::new_with_dependencies(
-        String::from("panic!"),
-        vec![String::from("another dependency")],
-        &aaaaah_panic,
-    );
-    let dependency2 = TestCase::new(String::from("another dependency"), &another_depency);
-    let case = TestCase::new_with_dependencies(
-        String::from("so needy"),
-        vec![String::from("panic!"), String::from("another dependency")],
-        &hello_world,
-    );
-
-    suite.add_test(Box::new(dependency2));
-    suite.add_test(Box::new(dependency1));
-    suite.add_test(Box::new(case));
-
-    println!("Result: {:?}", suite.run());
-}
+intertest_main!(do_nothing, hello);

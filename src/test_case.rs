@@ -11,6 +11,22 @@ where
     test_function: &'static F,
 }
 
+#[macro_export]
+macro_rules! test_case {
+    ($name:ident[$($depndency:ident),*] $test:block) => {{
+        fn case_function() {
+            $test;
+        }
+        $crate::test_case::TestCase::new_with_dependencies(
+            String::from(stringify!($name)),
+            vec![$( String::from(stringify!($depndency)) )* ],
+            &case_function)
+    }};
+    ($name:ident $test:block) => {
+        test_case!($name[] $test)
+    };
+}
+
 impl<F> TestCase<F>
 where
     F: Fn() + Send + Sync + 'static,

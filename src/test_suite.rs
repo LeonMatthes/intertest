@@ -8,6 +8,28 @@ pub struct TestSuite {
     result: TestResult,
 }
 
+#[macro_export]
+macro_rules! test_suite {
+    ( $name:ident[$($dependency:ident),*] { $($test:expr);*$(;)? } ) => {
+        fn $name() -> TestSuite {
+            let mut suite = $crate::test_suite::TestSuite::new_with_dependencies(
+                String::from(stringify!($name)),
+                vec![$(String::from(stringify!($dependency)),)*]);
+            $( suite.add_test(Box::new($test)); )*
+            suite
+        }
+    };
+    ( $name:ident { $($test:expr);*$(;)? } ) => {
+        fn $name() -> TestSuite {
+            let mut suite = $crate::test_suite::TestSuite::new(
+                String::from(stringify!($name)));
+            $( suite.add_test(Box::new($test)); )*
+            suite
+        }
+    }
+
+}
+
 impl TestSuite {
     pub fn new(name: String) -> TestSuite {
         TestSuite::new_with_dependencies(name, Vec::new())
@@ -78,6 +100,7 @@ impl Test for TestSuite {
 
     fn run(&mut self) -> &TestResult {
         if !self.tests.is_cyclic() {
+            self.result = TestResult::Success;
             let topo = self
                 .tests
                 .topo()
