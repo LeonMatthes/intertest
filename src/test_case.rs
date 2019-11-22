@@ -13,17 +13,19 @@ where
 
 #[macro_export]
 macro_rules! test_case {
-    ($name:ident[$($depndency:ident),*] $test:block) => {{
+    {$name:ident[$($dependency:ident),*]: $($test:stmt);*$(;)?} => {{
         fn case_function() {
-            $test;
+            $($test;)*
         }
         $crate::test_case::TestCase::new_with_dependencies(
             String::from(stringify!($name)),
-            vec![$( String::from(stringify!($depndency)) )* ],
+            vec![$( String::from(stringify!($dependency)) )* ],
             &case_function)
     }};
-    ($name:ident $test:block) => {
-        test_case!($name[] $test)
+    ($name:ident: $($test:stmt);*$(;)?) => {
+        test_case! { $name[]:
+            $($test;)*
+        }
     };
 }
 

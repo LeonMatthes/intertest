@@ -9,25 +9,39 @@ pub struct TestSuite {
 }
 
 #[macro_export]
-macro_rules! test_suite {
-    ( $name:ident[$($dependency:ident),*] { $($test:expr);*$(;)? } ) => {
-        fn $name() -> TestSuite {
-            let mut suite = $crate::test_suite::TestSuite::new_with_dependencies(
-                String::from(stringify!($name)),
-                vec![$(String::from(stringify!($dependency)),)*]);
-            $( suite.add_test(Box::new($test)); )*
-            suite
+macro_rules! child_suite {
+    { $name:ident[$($dependency:ident),*$(,)?]: $($test:expr)* } => {
+        {
+        let mut suite = $crate::test_suite::TestSuite::new_with_dependencies(
+            String::from(stringify!($name)),
+            vec![$(String::from(stringify!($dependency)),)*]);
+        $( suite.add_test(Box::new($test)); )*
+        suite
         }
     };
-    ( $name:ident { $($test:expr);*$(;)? } ) => {
+    { $name:ident : $($test:expr)* } => {
+        child_suite! ($name[] {
+            $($test;)*
+        })
+    }
+}
+
+#[macro_export]
+macro_rules! test_suite {
+    { $name:ident[$($dependency:ident),*]: $($test:expr)* } => {
         fn $name() -> TestSuite {
-            let mut suite = $crate::test_suite::TestSuite::new(
-                String::from(stringify!($name)));
-            $( suite.add_test(Box::new($test)); )*
-            suite
+            child_suite! { $name[$($dependency,)*]:
+                $($test)*
+            }
+        }
+    };
+    { $name:ident : $($test:expr)* } => {
+        fn $name() -> TestSuite {
+            child_suite! { $name[]:
+                $($test)*
+            }
         }
     }
-
 }
 
 impl TestSuite {
