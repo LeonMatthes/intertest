@@ -1,5 +1,5 @@
+use intertest::macros::*;
 use intertest::{child_suite, intertest_main, test_case, test_suite};
-use intertest::{test::Test, test_suite::TestSuite};
 
 test_suite! { do_nothing:
     test_case! { do_nothing_too:
