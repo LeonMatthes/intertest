@@ -4,32 +4,66 @@ use crate::{
     test_suite::TestSuite,
 };
 use graphlib::VertexId;
-use std::thread;
+use std::{collections::HashMap, io::Write, thread};
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 pub struct TestRunner {
     results: Vec<TestResult>,
     recursion: i64,
+    out_stream: StandardStream,
+    colors: HashMap<TestResult, ColorSpec>,
 }
 
 impl TestRunner {
+    fn insert_colors(&mut self) {
+        let mut success_color = ColorSpec::new();
+        success_color.set_fg(Some(Color::Green));
+        self.colors.insert(TestResult::Success, success_color);
+
+        let mut error_color = ColorSpec::new();
+        error_color.set_fg(Some(Color::Red));
+        self.colors.insert(TestResult::Error, error_color);
+    }
     pub fn new() -> TestRunner {
-        TestRunner {
-            results: vec![],
+        let mut runner = TestRunner {
+            results: Vec::new(),
             recursion: 0,
-        }
+            out_stream: StandardStream::stdout(ColorChoice::Auto),
+            colors: HashMap::new(),
+        };
+        runner.insert_colors();
+        runner
     }
 
-    fn print_result(&self, test: &Box<dyn Test>) {
+    fn print_result(&mut self, test: &Box<dyn Test>) {
+        let mut padding = String::new();
         for _ in 0..self.recursion {
-            print!("  ")
-        }
-        match *test.result() {
-            TestResult::Error => print!("E"),
-            TestResult::Ignored => print!("*"),
-            TestResult::Success | TestResult::NotRun => print!("."),
+            padding.push_str("  ");
         }
 
-        println!(" {}", test.name());
+        if let Some(color) = self.colors.get(test.result()) {
+            self.out_stream.set_color(color).ok();
+        }
+
+        let result_string = match *test.result() {
+            TestResult::Error => "E",
+            TestResult::Ignored => ".",
+            TestResult::Success | TestResult::NotRun => "*",
+        };
+
+        if let Err(_) = writeln!(
+            &mut self.out_stream,
+            "{}{} {}",
+            padding,
+            result_string,
+            test.name()
+        ) {
+            println!("Could not write result to output stream");
+        }
+
+        self.out_stream.reset().ok();
+        // flush to make sure the reset completed and we don't continue painting further output
+        self.out_stream.flush().ok();
     }
 
     pub fn run_suite(&mut self, suite: &mut TestSuite) -> TestResult {
@@ -50,6 +84,11 @@ impl TestRunner {
                             self.results.push(result.clone());
                             success = false;
                         }
+                        self.print_result(test);
+                    }
+                } else {
+                    if let Some(test) = suite.tests.fetch_mut(test_index) {
+                        test.ignore();
                         self.print_result(test);
                     }
                 }

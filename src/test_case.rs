@@ -1,6 +1,6 @@
 use crate::test::{Test, TestResult, TestResult::*};
 use crate::test_runner::TestRunner;
-use std::{thread, vec::Vec};
+use std::vec::Vec;
 
 pub struct TestCase {
     name: String,
@@ -53,5 +53,9 @@ impl Test for TestCase {
     fn run(&mut self, runner: &mut TestRunner) -> &TestResult {
         self.result = runner.run_case(self);
         &self.result
+    }
+
+    fn ignore(&mut self) {
+        self.result = TestResult::Ignored;
     }
 }

@@ -81,4 +81,8 @@ impl Test for TestSuite {
         self.result = runner.run_suite(self);
         &self.result
     }
+
+    fn ignore(&mut self) {
+        self.result = TestResult::Ignored;
+    }
 }

@@ -9,7 +9,7 @@ test_suite! { do_nothing:
 
 test_suite! { hello[do_nothing]:
     test_case! { error :
-        // panic!("ERROR!");
+        panic!("ERROR!");
     }
     test_case! { world[error]:
     }

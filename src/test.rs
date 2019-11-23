@@ -1,6 +1,6 @@
 use crate::test_runner::TestRunner;
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub enum TestResult {
     Error,
     Ignored,
@@ -16,4 +16,6 @@ pub trait Test {
     fn result(&self) -> &TestResult;
 
     fn run(&mut self, runner: &mut TestRunner) -> &TestResult;
+
+    fn ignore(&mut self);
 }
