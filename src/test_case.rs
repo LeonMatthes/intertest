@@ -1,16 +1,16 @@
 use crate::test::{Test, TestResult, TestResult::*};
 use crate::test_runner::TestRunner;
-use std::vec::Vec;
+use std::{panic::RefUnwindSafe, vec::Vec};
 
 pub struct TestCase {
     name: String,
     dependencies: Vec<String>,
     result: TestResult,
-    pub test_function: &'static (dyn Fn() + Send + Sync),
+    pub test_function: &'static (dyn Fn() + RefUnwindSafe),
 }
 
 impl TestCase {
-    pub fn new(name: String, test_function: &'static (dyn Fn() + Send + Sync)) -> TestCase {
+    pub fn new(name: String, test_function: &'static (dyn Fn() + RefUnwindSafe)) -> TestCase {
         TestCase {
             name,
             dependencies: Vec::new(),
@@ -22,7 +22,7 @@ impl TestCase {
     pub fn new_with_dependencies(
         name: String,
         dependencies: Vec<String>,
-        test_function: &'static (dyn Fn() + Send + Sync),
+        test_function: &'static (dyn Fn() + RefUnwindSafe),
     ) -> TestCase {
         TestCase {
             name,

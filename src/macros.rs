@@ -9,6 +9,7 @@ macro_rules! intertest_main {
 
             let mut runner = TestRunner::new();
             global_suite.run(&mut runner);
+            runner.print_errors();
         }
     };
 }
