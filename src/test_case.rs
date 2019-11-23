@@ -1,21 +1,16 @@
 use crate::test::{Test, TestResult, TestResult::*};
+use crate::test_runner::TestRunner;
 use std::{thread, vec::Vec};
 
-pub struct TestCase<F>
-where
-    F: Fn() + Send + Sync + 'static,
-{
+pub struct TestCase {
     name: String,
     dependencies: Vec<String>,
     result: TestResult,
-    test_function: &'static F,
+    pub test_function: &'static (dyn Fn() + Send + Sync),
 }
 
-impl<F> TestCase<F>
-where
-    F: Fn() + Send + Sync + 'static,
-{
-    pub fn new(name: String, test_function: &'static F) -> TestCase<F> {
+impl TestCase {
+    pub fn new(name: String, test_function: &'static (dyn Fn() + Send + Sync)) -> TestCase {
         TestCase {
             name,
             dependencies: Vec::new(),
@@ -27,8 +22,8 @@ where
     pub fn new_with_dependencies(
         name: String,
         dependencies: Vec<String>,
-        test_function: &'static F,
-    ) -> TestCase<F> {
+        test_function: &'static (dyn Fn() + Send + Sync),
+    ) -> TestCase {
         TestCase {
             name,
             result: NotRun,
@@ -42,10 +37,7 @@ where
     }
 }
 
-impl<F> Test for TestCase<F>
-where
-    F: Fn() + Send + Sync + 'static,
-{
+impl Test for TestCase {
     fn name(&self) -> &str {
         &self.name
     }
@@ -58,13 +50,8 @@ where
         &self.result
     }
 
-    fn run(&mut self) -> &TestResult {
-        let join_handle = thread::spawn(self.test_function);
-
-        self.result = match join_handle.join() {
-            Ok(_) => Success,
-            Err(_) => Error,
-        };
+    fn run(&mut self, runner: &mut TestRunner) -> &TestResult {
+        self.result = runner.run_case(self);
         &self.result
     }
 }

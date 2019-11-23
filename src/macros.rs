@@ -1,4 +1,4 @@
-pub use crate::{test::Test, test_suite::TestSuite};
+pub use crate::{test::Test, test_runner::TestRunner, test_suite::TestSuite};
 
 #[macro_export]
 macro_rules! intertest_main {
@@ -6,7 +6,9 @@ macro_rules! intertest_main {
         fn main() {
             let mut global_suite = TestSuite::new(String::from(""));
             $( global_suite.add_test(Box::new($suite())); )*
-            global_suite.run();
+
+            let mut runner = TestRunner::new();
+            global_suite.run(&mut runner);
         }
     };
 }
@@ -22,10 +24,10 @@ macro_rules! child_suite {
         suite
         }
     };
-    { $name:ident : $($test:expr)* } => {
-        child_suite! ($name[] {
-            $($test;)*
-        })
+    { $name:ident: $($test:expr)* } => {
+        child_suite! {$name[]:
+            $($test)*
+        }
     }
 }
 

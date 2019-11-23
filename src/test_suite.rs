@@ -1,8 +1,9 @@
 use crate::test::{Test, TestResult};
+use crate::test_runner::TestRunner;
 use graphlib::{Graph, VertexId};
 
 pub struct TestSuite {
-    tests: Graph<Box<dyn Test>>,
+    pub tests: Graph<Box<dyn Test>>,
     name: String,
     dependencies: Vec<String>,
     result: TestResult,
@@ -53,7 +54,7 @@ impl TestSuite {
         None
     }
 
-    fn check_dependencies(&self, test: &VertexId) -> bool {
+    pub fn check_dependencies(&self, test: &VertexId) -> bool {
         self.tests
             .in_neighbors(test)
             .all(|dependent_id| match self.tests.fetch(dependent_id) {
@@ -76,26 +77,8 @@ impl Test for TestSuite {
         &self.result
     }
 
-    fn run(&mut self) -> &TestResult {
-        if !self.tests.is_cyclic() {
-            self.result = TestResult::Success;
-            let topo = self
-                .tests
-                .topo()
-                .map(VertexId::clone)
-                .collect::<Vec<VertexId>>();
-
-            for test_index in &topo {
-                if self.check_dependencies(test_index) {
-                    if let Some(test) = self.tests.fetch_mut(test_index) {
-                        match test.run() {
-                            TestResult::Success => {}
-                            _ => self.result = TestResult::Error,
-                        }
-                    }
-                }
-            }
-        }
+    fn run(&mut self, runner: &mut TestRunner) -> &TestResult {
+        self.result = runner.run_suite(self);
         &self.result
     }
 }

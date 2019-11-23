@@ -1,3 +1,5 @@
+use crate::test_runner::TestRunner;
+
 #[derive(Clone, PartialEq, Debug)]
 pub enum TestResult {
     Error,
@@ -13,5 +15,5 @@ pub trait Test {
 
     fn result(&self) -> &TestResult;
 
-    fn run(&mut self) -> &TestResult;
+    fn run(&mut self, runner: &mut TestRunner) -> &TestResult;
 }
