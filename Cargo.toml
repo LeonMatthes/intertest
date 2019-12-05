@@ -7,6 +7,5 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-graphlib={git="https://github.com/MrModder/graphlib", branch="no_clone_required"}
 termcolor="1.0.5"
 backtrace="0.3"

@@ -7,9 +7,7 @@ macro_rules! intertest_main {
             let mut global_suite = TestSuite::new(String::from(""));
             $( global_suite.add_test(Box::new($suite())); )*
 
-            let mut runner = TestRunner::new();
-            global_suite.run(&mut runner);
-            runner.print_errors();
+            intertest::intertest_main_function(global_suite)
         }
     };
 }

@@ -1,38 +1,36 @@
 use crate::{
-    test::{ErrorInfo, Test, TestResult},
+    test::Test,
     test_case::TestCase,
+    test_result::{ErrorInfo, TestCaseResult, TestResult, TestRunResult, TestSuiteResult},
     test_suite::TestSuite,
 };
 use backtrace::Backtrace;
-use graphlib::VertexId;
 use std::{collections::HashMap, io::Write, panic, sync::Arc, sync::Mutex};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 pub struct TestRunner {
-    errors: Vec<TestResult>,
     recursion: i64,
     out_stream: StandardStream,
-    colors: HashMap<TestResult, ColorSpec>,
+    colors: HashMap<TestRunResult, ColorSpec>,
 }
 
 impl TestRunner {
     fn insert_colors(&mut self) {
         let mut success_color = ColorSpec::new();
         success_color.set_fg(Some(Color::Green));
-        self.colors.insert(TestResult::Success, success_color);
+        self.colors.insert(TestRunResult::Success, success_color);
 
         let mut error_color = ColorSpec::new();
         error_color.set_fg(Some(Color::Red));
-        self.colors.insert(TestResult::Error(None), error_color);
+        self.colors.insert(TestRunResult::Error(None), error_color);
 
         let mut ignore_color = ColorSpec::new();
         ignore_color.set_fg(Some(Color::Rgb(150, 150, 150)));
-        self.colors.insert(TestResult::Ignored, ignore_color);
+        self.colors.insert(TestRunResult::Ignored, ignore_color);
     }
 
     pub fn new() -> TestRunner {
         let mut runner = TestRunner {
-            errors: Vec::new(),
             recursion: 0,
             out_stream: StandardStream::stdout(ColorChoice::Auto),
             colors: HashMap::new(),
@@ -41,20 +39,20 @@ impl TestRunner {
         runner
     }
 
-    fn print_result(&mut self, test: &Box<dyn Test>) {
+    fn print_result(&mut self, test: &dyn Test, run_result: &TestRunResult) {
         let mut padding = String::new();
         for _ in 0..self.recursion {
             padding.push_str("  ");
         }
 
-        if let Some(color) = self.colors.get(test.result()) {
+        if let Some(color) = self.colors.get(&run_result) {
             self.out_stream.set_color(color).ok();
         }
 
-        let result_string = match *test.result() {
-            TestResult::Error(_) => "E",
-            TestResult::Ignored => ".",
-            TestResult::Success | TestResult::NotRun => "*",
+        let result_string = match run_result {
+            TestRunResult::Error(_) => "E",
+            TestRunResult::Ignored => ".",
+            TestRunResult::Success => "*",
         };
 
         if let Err(_) = writeln!(
@@ -72,60 +70,55 @@ impl TestRunner {
         self.out_stream.flush().ok();
     }
 
-    pub fn print_errors(&mut self) {
-        for result in &self.errors {
-            if let TestResult::Error(Some(error)) = result {
-                writeln!(&mut self.out_stream, "{:?}", error.back_trace).ok();
-            }
-        }
+    fn were_dependencies_successful<'a>(
+        &self,
+        mut dependencies: Box<dyn Iterator<Item = &'a String> + 'a>,
+        previous_results: &HashMap<String, Box<dyn TestResult>>,
+    ) -> bool {
+        dependencies.all(|dependency| {
+            previous_results.get(dependency).map_or(false, |result| {
+                result.run_result() == TestRunResult::Success
+            })
+        })
     }
 
-    pub fn run_suite(&mut self, suite: &mut TestSuite) -> TestResult {
+    pub fn run_suite(&mut self, suite: &mut TestSuite) -> TestSuiteResult {
         self.recursion += 1;
-        let mut success = true;
-        if !suite.tests.is_cyclic() {
-            let topo = suite
-                .tests
-                .topo()
-                .map(VertexId::clone)
-                .collect::<Vec<VertexId>>();
+        let mut previous_results = HashMap::new();
 
-            for test_index in &topo {
-                if suite.check_dependencies(test_index) {
-                    if let Some(test) = suite.tests.fetch_mut(test_index) {
-                        let result = test.run(self);
-                        if *result == TestResult::Error(None) {
-                            self.errors.push(result.clone());
-                            success = false;
-                        }
-                        self.print_result(test);
-                    }
-                } else {
-                    if let Some(test) = suite.tests.fetch_mut(test_index) {
-                        test.ignore();
-                        self.print_result(test);
-                    }
-                }
+        for test in suite.tests.iter_mut() {
+            if self.were_dependencies_successful(test.dependencies(), &previous_results) {
+                let result = test.run(self);
+
+                self.print_result(&**test, &result.run_result());
+                previous_results.insert(test.name().to_string(), result);
+            } else {
+                self.print_result(&**test, &TestRunResult::Ignored);
             }
         }
+
         self.recursion -= 1;
-        if success {
-            TestResult::Success
-        } else {
-            TestResult::Error(None)
-        }
+        TestSuiteResult::new(
+            suite,
+            previous_results.into_iter().map(|(_, v)| v).collect(),
+        )
     }
 
-    pub fn run_case(&mut self, case: &TestCase) -> TestResult {
+    pub fn run_case(&mut self, case: &TestCase) -> TestCaseResult {
         let old_hook = panic::take_hook();
 
         let error_info: Arc<Mutex<Option<ErrorInfo>>> = Arc::new(Mutex::new(None));
         {
             let error_info = error_info.clone();
-            panic::set_hook(Box::new(move |_| {
+            panic::set_hook(Box::new(move |panic_info| {
+                let maybe_message = panic_info.payload().downcast_ref::<&str>();
+                let message = match maybe_message {
+                    Some(message) => message,
+                    None => "-------",
+                };
                 *error_info.lock().unwrap() = Some(ErrorInfo {
                     back_trace: Backtrace::new(),
-                    message: String::from(""),
+                    message: String::from(message),
                 });
             }));
         }
@@ -134,10 +127,14 @@ impl TestRunner {
         panic::catch_unwind(case.test_function).ok();
 
         panic::set_hook(old_hook);
-        let info = error_info.lock().unwrap().clone();
-        match info {
-            Some(info) => TestResult::Error(Some(info.clone())),
-            None => TestResult::Success,
-        }
+
+        let info = error_info.lock().unwrap();
+        TestCaseResult::new(
+            case,
+            match &*info {
+                Some(err) => TestRunResult::Error(Some(err.clone())),
+                None => TestRunResult::Success,
+            },
+        )
     }
 }

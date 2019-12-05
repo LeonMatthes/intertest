@@ -8,13 +8,15 @@ test_suite! { do_nothing:
 }
 
 test_suite! { hello[do_nothing]:
+
     test_case! { error :
         panic!("ERROR!");
     }
+
     test_case! { world[error]:
     }
 
-    child_suite! { moar_tests:
+    child_suite! { moar_tests[world]:
         test_case! { my_test:
         }
 

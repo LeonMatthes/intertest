@@ -1,12 +1,12 @@
-use crate::test::{Test, TestResult};
+use crate::test::Test;
+use crate::test_result::TestResult;
 use crate::test_runner::TestRunner;
-use graphlib::{Graph, VertexId};
+use std::vec::Vec;
 
 pub struct TestSuite {
-    pub tests: Graph<Box<dyn Test>>,
+    pub tests: Vec<Box<dyn Test>>,
     name: String,
     dependencies: Vec<String>,
-    result: TestResult,
 }
 
 impl TestSuite {
@@ -16,51 +16,29 @@ impl TestSuite {
 
     pub fn new_with_dependencies(name: String, dependencies: Vec<String>) -> TestSuite {
         TestSuite {
-            tests: Graph::new(),
+            tests: Vec::new(),
             name,
             dependencies,
-            result: TestResult::NotRun,
+        }
+    }
+
+    fn assert_dependencies_exist(&self, test: &dyn Test) {
+        for dependency in test.dependencies() {
+            if !self.tests.iter().any(|test| test.name() == dependency) {
+                panic!(
+                    "Dependency '{}' of test '{}' could not be found in suite '{}'",
+                    dependency,
+                    test.name(),
+                    self.name
+                );
+            }
         }
     }
 
     pub fn add_test(&mut self, test: Box<dyn Test>) {
-        let dependencies = test
-            .dependencies()
-            .map(|dependency_name| {
-                self.find_by_name(dependency_name).unwrap_or_else(|| {
-                    panic!(
-                        "Dependency '{}' for test '{}' could not be found in suite '{}'",
-                        dependency_name,
-                        test.name(),
-                        self.name()
-                    )
-                })
-            })
-            .collect::<Vec<VertexId>>();
-        let test_id = self.tests.add_vertex(test);
-        for dependency in dependencies {
-            self.tests.add_edge(&dependency, &test_id).unwrap();
-        }
-    }
+        self.assert_dependencies_exist(&*test);
 
-    fn find_by_name(&self, name: &str) -> Option<VertexId> {
-        for vertex_id in self.tests.vertices() {
-            if let Some(vertex) = self.tests.fetch(vertex_id) {
-                if vertex.name() == name {
-                    return Some(vertex_id.clone());
-                }
-            }
-        }
-        None
-    }
-
-    pub fn check_dependencies(&self, test: &VertexId) -> bool {
-        self.tests
-            .in_neighbors(test)
-            .all(|dependent_id| match self.tests.fetch(dependent_id) {
-                None => false,
-                Some(dependency) => *dependency.result() == TestResult::Success,
-            })
+        self.tests.push(test);
     }
 }
 
@@ -73,16 +51,7 @@ impl Test for TestSuite {
         Box::new(self.dependencies.iter())
     }
 
-    fn result(&self) -> &TestResult {
-        &self.result
-    }
-
-    fn run(&mut self, runner: &mut TestRunner) -> &TestResult {
-        self.result = runner.run_suite(self);
-        &self.result
-    }
-
-    fn ignore(&mut self) {
-        self.result = TestResult::Ignored;
+    fn run(&mut self, runner: &mut TestRunner) -> Box<dyn TestResult> {
+        Box::from(runner.run_suite(self))
     }
 }

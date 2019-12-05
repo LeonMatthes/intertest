@@ -1,11 +1,11 @@
-use crate::test::{Test, TestResult, TestResult::*};
+use crate::test::Test;
+use crate::test_result::TestResult;
 use crate::test_runner::TestRunner;
 use std::{panic::RefUnwindSafe, vec::Vec};
 
 pub struct TestCase {
     name: String,
     dependencies: Vec<String>,
-    result: TestResult,
     pub test_function: &'static (dyn Fn() + RefUnwindSafe),
 }
 
@@ -14,7 +14,6 @@ impl TestCase {
         TestCase {
             name,
             dependencies: Vec::new(),
-            result: NotRun,
             test_function,
         }
     }
@@ -26,7 +25,6 @@ impl TestCase {
     ) -> TestCase {
         TestCase {
             name,
-            result: NotRun,
             dependencies,
             test_function,
         }
@@ -46,16 +44,7 @@ impl Test for TestCase {
         Box::new(self.dependencies.iter())
     }
 
-    fn result(&self) -> &TestResult {
-        &self.result
-    }
-
-    fn run(&mut self, runner: &mut TestRunner) -> &TestResult {
-        self.result = runner.run_case(self);
-        &self.result
-    }
-
-    fn ignore(&mut self) {
-        self.result = TestResult::Ignored;
+    fn run(&mut self, runner: &mut TestRunner) -> Box<dyn TestResult> {
+        Box::from(runner.run_case(self))
     }
 }
