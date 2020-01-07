@@ -68,7 +68,8 @@ impl TestCaseResult {
 impl TestResult for TestCaseResult {
     fn print(&self, parent_path: &str) {
         if let Error(err) = &self.run_result {
-            println!("Test Failure: {}/{}", parent_path, &self.name);
+            println!("");
+            println!("Test Failure: {}{}", parent_path, &self.name);
             match err {
                 Some(info) => {
                     println!("Message: {}", info.message);
@@ -76,7 +77,6 @@ impl TestResult for TestCaseResult {
                 }
                 None => println!("No backtrace available!"),
             }
-            println!("");
         }
     }
 
@@ -102,7 +102,7 @@ impl TestSuiteResult {
 impl TestResult for TestSuiteResult {
     fn print(&self, parent_path: &str) {
         if self.run_result() != Success {
-            let my_path = format!("{}/{}", parent_path, &self.name);
+            let my_path = format!("{}{}/", parent_path, &self.name);
             self.child_results
                 .iter()
                 .for_each(|result| result.print(&my_path));
